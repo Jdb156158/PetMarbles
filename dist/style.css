@@ -682,7 +682,7 @@ h1 > span:after {
 .journey-dots {
   display: flex;
   justify-content: space-between;
-  gap: 5px;
+  gap: 3px;
   margin-top: 21px;
   position: relative;
 }
@@ -691,14 +691,14 @@ h1 > span:after {
   position: absolute;
   left: 2px;
   right: 2px;
-  top: 12px;
+  top: 11px;
   height: 1px;
   background: #dbe4d5;
   z-index: -1;
 }
 .journey-dots button {
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   display: grid;
   place-items: center;
   font-size: 9px;
@@ -965,7 +965,7 @@ dialog::backdrop {
 }
 .level-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 10px;
   margin-top: 26px;
 }
@@ -1414,4 +1414,32 @@ dialog::backdrop {
   outline: 2px solid #93ad8a;
   outline-offset: -4px;
   border-radius: 20px;
+}
+.chapter-tabs {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  margin-top: 22px;
+}
+.chapter-tabs button {
+  padding: 9px 3px;
+  font-size: 9px;
+  color: #8a9e80;
+  border: 1px solid #dde6d4;
+  border-radius: 9px;
+  background: #f0f5e9;
+}
+.chapter-tabs button[aria-pressed="true"] {
+  color: #fff;
+  background: #548b75;
+  border-color: #548b75;
+}
+@media (max-width: 700px) {
+  .chapter-tabs {
+    gap: 4px;
+  }
+  .chapter-tabs button {
+    font-size: 8px;
+    padding: 9px 1px;
+  }
 }

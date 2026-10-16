@@ -8,9 +8,9 @@ import {
   reflect,
   aimPath,
 } from "../dist/engine.js";
-test("all eight reference levels have achievable collection quotas", () => {
-  assert.equal(LEVELS.length, 8);
-  for (let i = 0; i < 8; i++) {
+test("all 100 levels have achievable collection quotas", () => {
+  assert.equal(LEVELS.length, 100);
+  for (let i = 0; i < LEVELS.length; i++) {
     let s = createState(i);
     for (let [kind, n] of Object.entries(LEVELS[i].goals))
       assert.ok(
@@ -71,7 +71,7 @@ test("preview is finite, starts at the launcher, and reflects off a side wall", 
   assert.ok(p.some((point, i) => i > 1 && point[0] < p[i - 1][0]));
 });
 test("every level can be won with actual aimed physics within its marble budget", () => {
-  for (let level = 0; level < 8; level++) {
+  for (let level = 0; level < LEVELS.length; level++) {
     let s = createState(level);
     let actualShots = 0;
     while (s.status === "playing" && s.ammo > 0) {
@@ -114,5 +114,28 @@ test("every level can be won with actual aimed physics within its marble budget"
       `level ${level + 1} failed after ${actualShots} shots`,
     );
     assert.ok(actualShots <= LEVELS[level].shots);
+  }
+});
+
+test("the 92 new levels have distinct layouts without overlapping targets", () => {
+  const seen = new Set();
+  for (let level = 8; level < LEVELS.length; level++) {
+    const l = LEVELS[level];
+    const layout = JSON.stringify(l.items.map((e) => [e.x, e.y]));
+    assert.ok(!seen.has(layout), `duplicate layout at level ${level + 1}`);
+    seen.add(layout);
+    for (let i = 0; i < l.items.length; i++) {
+      const e = l.items[i];
+      assert.ok(e.hp >= 1 && e.hp <= 4);
+      assert.ok(e.y - e.r > 100 && e.y + e.r < 590);
+      assert.ok(e.x - e.r > 60 && e.x + e.r < 380);
+      for (let j = i + 1; j < l.items.length; j++) {
+        const other = l.items[j];
+        assert.ok(
+          Math.hypot(e.x - other.x, e.y - other.y) >= e.r + other.r + 2,
+          `level ${level + 1}: overlapping targets ${i}, ${j}`,
+        );
+      }
+    }
   }
 });

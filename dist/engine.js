@@ -146,7 +146,7 @@ const levels = [
     ],
   },
   {
-    name: "最后的游乐派对",
+    name: "林间游乐派对",
     area: "果冻花园",
     shots: 20,
     shape: 1,
@@ -163,6 +163,146 @@ const levels = [
     ],
   },
 ];
+export const CHAPTERS = [
+  { name: "初见奇遇", palette: ["crate", "pet", "star", "plant"] },
+  { name: "糖果海岸", palette: ["cake", "star", "pet", "cone"] },
+  { name: "莓果森林", palette: ["tree", "leaf", "wood", "pet"] },
+  { name: "星光花园", palette: ["star", "plant", "pet", "crate"] },
+  { name: "薄荷冰湾", palette: ["ice", "leaf", "star", "wood"] },
+  { name: "花芽温室", palette: ["plant", "tree", "leaf", "crate"] },
+  { name: "云朵甜岛", palette: ["cake", "cone", "pet", "ice"] },
+  { name: "琥珀木屋", palette: ["wood", "crate", "tree", "star"] },
+  { name: "月光泳池", palette: ["pet", "star", "ice", "plant"] },
+  { name: "奇遇嘉年华", palette: ["tree", "cake", "star", "cone"] },
+];
+const grid = (rows, cols, include = () => true) =>
+  Array.from({ length: rows * cols }, (_, i) => [
+    i % cols,
+    Math.floor(i / cols),
+  ])
+    .filter(([x, y]) => include(x, y))
+    .map(([x, y]) => [100 + x * 60, 210 + y * 70]);
+const layouts = [
+  {
+    name: "泡泡方阵",
+    points: grid(5, 5),
+    tip: "沿侧墙切入方阵，试着让弹珠在目标之间多弹几次。",
+  },
+  {
+    name: "流光菱阵",
+    points: grid(5, 5, (x, y) => Math.abs(x - 2) + Math.abs(y - 2) <= 3),
+    tip: "从菱形阵的斜边切入，往往比直击中心收集得更多。",
+  },
+  {
+    name: "甜心山谷",
+    points: [
+      [100, 210],
+      [340, 210],
+      [140, 275],
+      [300, 275],
+      [180, 340],
+      [260, 340],
+      [220, 405],
+      ...grid(2, 5).map(([x, y]) => [x, y + 265]),
+    ],
+    tip: "顺着 V 形山谷的斜线发射，再借下方目标反弹回来。",
+  },
+  {
+    name: "环游星河",
+    points: [
+      ...Array.from({ length: 12 }, (_, i) => [
+        220 + Math.cos((i * Math.PI) / 6) * 125,
+        365 + Math.sin((i * Math.PI) / 6) * 155,
+      ]),
+      [180, 330],
+      [260, 330],
+      [180, 405],
+      [260, 405],
+    ],
+    tip: "试着穿进圆环内部，利用内外目标形成连续反弹。",
+  },
+  {
+    name: "左右回声",
+    points: grid(6, 5, (x, y) => (y % 2 ? x >= 2 : x <= 2)),
+    tip: "目标在左右交替排布，斜向发射比竖直发射更容易连击。",
+  },
+  {
+    name: "双子长廊",
+    points: [...grid(6, 5, (x) => x !== 2), [220, 245], [220, 385], [220, 525]],
+    tip: "两侧长廊里藏着连续碰撞的机会，别只盯着中间。",
+  },
+  {
+    name: "宝藏小堡",
+    points: grid(
+      5,
+      5,
+      (x, y) => x === 0 || x === 4 || y === 0 || y === 4 || x === 2,
+    ),
+    tip: "先打开外圈，再把弹珠送进小堡内部。",
+  },
+  {
+    name: "星芒派对",
+    points: grid(5, 5, (x, y) => x === 2 || y === 2 || x === y || x + y === 4),
+    tip: "沿着星芒的斜线找角度，一次碰撞可以带来更多转向。",
+  },
+  {
+    name: "波浪漫步",
+    points: Array.from({ length: 20 }, (_, i) => [
+      110 + (i % 4) * 70 + (Math.floor(i / 4) % 2 ? 10 : -10),
+      210 + Math.floor(i / 4) * 75,
+    ]),
+    tip: "错开的横排会改变反弹方向，试着从侧面穿过波浪。",
+  },
+  {
+    name: "快乐阶梯",
+    points: grid(5, 5, (x, y) => x + y <= 4 || x === 4),
+    tip: "阶梯拐角很适合反弹，先收集稀少的目标，再处理成片的障碍。",
+  },
+];
+for (let index = 8; index < 100; index++) {
+  const chapter = CHAPTERS[Math.floor(index / 10)];
+  const layout = layouts[index % 10];
+  const tier = Math.min(2, Math.floor(index / 35));
+  const items = layout.points.map(([x, y], slot) => {
+    const type = chapter.palette[(slot + Math.floor(slot / 5) + index) % 4];
+    const hp = Math.min(
+      4,
+      1 +
+        tier +
+        (type === "tree" || type === "cone" ? 1 : 0) +
+        ((slot + index) % 5 === 0 ? 1 : 0),
+    );
+    return E(
+      type,
+      Math.round(
+        (Math.floor(index / 10) % 2 ? 440 - x : x) +
+          ((index * 17 + slot * 11) % 9) -
+          4,
+      ),
+      Math.round(y + ((index * 13 + slot * 7) % 9) - 4),
+      hp,
+    );
+  });
+  const goals = Object.fromEntries(
+    chapter.palette.slice(0, 3).map((type) => {
+      const count = items.filter((e) => e.type === type).length;
+      return [
+        type,
+        Math.max(1, Math.ceil(count * (0.65 + (index % 10) * 0.025))),
+      ];
+    }),
+  );
+  levels.push({
+    name: `${chapter.name} · ${layout.name}`,
+    area: chapter.name,
+    description: `让${chapter.name}的快乐，落进你的口袋。`,
+    tip: layout.tip,
+    shots: 20 + Math.floor(index / 20) + Math.floor(items.length / 8),
+    shape: (index + Math.floor(index / 10)) % 2,
+    goals,
+    items,
+  });
+}
 export const LEVELS = levels;
 export function createState(index = 0) {
   const l = levels[index];

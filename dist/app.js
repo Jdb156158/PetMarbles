@@ -2,6 +2,7 @@ import {
   W,
   H,
   LEVELS,
+  CHAPTERS,
   TYPES,
   createState,
   polygon,
@@ -68,12 +69,22 @@ try {
   saved = {};
 }
 let progress = {
-  unlocked: Math.max(0, Math.min(7, Number(saved.unlocked) || 0)),
+  unlocked: Math.max(
+    0,
+    Math.min(LEVELS.length - 1, Number(saved.unlocked) || 0),
+  ),
   records: saved.records || {},
   pets: saved.pets || ["pet"],
   points: Number(saved.points) || 0,
-  current: Math.max(0, Math.min(7, Number(saved.current) || 0)),
+  current: Math.max(0, Math.min(LEVELS.length - 1, Number(saved.current) || 0)),
 };
+if (
+  progress.records[progress.unlocked] &&
+  progress.unlocked < LEVELS.length - 1
+) {
+  progress.unlocked++;
+  save();
+}
 let state = createState(Math.min(progress.current, progress.unlocked)),
   paused = false,
   fast = false,
@@ -206,8 +217,9 @@ function setupUi() {
     `${String(state.level + 1).padStart(2, "0")} / ${l.area}`;
   $("level-number").textContent = String(state.level + 1).padStart(2, "0");
   $("level-title").textContent = l.name;
-  $("level-description").textContent = descriptions[state.level];
-  $("level-tip").textContent = tips[state.level];
+  $("level-description").textContent =
+    l.description ?? descriptions[state.level];
+  $("level-tip").textContent = l.tip ?? tips[state.level];
   $("goals").replaceChildren();
   $("hud-goals").replaceChildren();
   for (const [type, n] of Object.entries(l.goals)) {
@@ -226,7 +238,12 @@ function setupUi() {
     $("hud-goals").append(hud);
   }
   $("journey").replaceChildren();
-  for (let i = 0; i < 8; i++) {
+  const chapterStart = Math.floor(state.level / 10) * 10;
+  for (
+    let i = chapterStart;
+    i < Math.min(chapterStart + 10, LEVELS.length);
+    i++
+  ) {
     let b = document.createElement("button");
     b.textContent = progress.records[i] ? "✓" : i + 1;
     b.className =
@@ -237,7 +254,9 @@ function setupUi() {
     $("journey").append(b);
   }
   $("journey-count").textContent =
-    `${String(Math.min(8, Object.keys(progress.records).length)).padStart(2, "0")} / 08`;
+    `${String(Object.keys(progress.records).length).padStart(2, "0")} / ${LEVELS.length}`;
+  $("journey-area").textContent =
+    `${CHAPTERS[Math.floor(state.level / 10)].name} · 第 ${chapterStart + 1}–${Math.min(chapterStart + 10, LEVELS.length)} 关`;
   let record = progress.records[state.level];
   $("best").textContent = record
     ? `${"★".repeat(record.stars)} · ${record.shots} 颗弹珠`
@@ -309,7 +328,7 @@ function event(e) {
     };
     progress.unlocked = Math.max(
       progress.unlocked,
-      Math.min(7, state.level + 1),
+      Math.min(LEVELS.length - 1, state.level + 1),
     );
     if (state.level >= 4 && !progress.pets.includes("dream"))
       progress.pets.push("dream");
@@ -607,9 +626,9 @@ function resultArt(kind = "pet") {
   return c;
 }
 function showResult(stars) {
-  let final = state.level === 7;
+  let final = state.level === LEVELS.length - 1;
   $("overlay").innerHTML =
-    `<div class="result-card"><span class="result-eyebrow">${final ? "ADVENTURE COMPLETE" : "A LITTLE WIN, A BIG SMILE"}</span><div class="art-slot"></div><h2>${final ? "奇遇圆满，快乐继续！" : "收集成功，快乐 +1！"}</h2><div class="result-stars">${Array.from({ length: 3 }, (_, i) => `<span class="${i < stars ? "" : "empty"}">★</span>`).join("")}</div><p>${final ? "你和新朋友一起走过了全部 8 个关卡。" : "又把一份小小的快乐，装进了口袋。"}</p><div class="result-stats"><span><b>${state.shotsUsed}</b>使用弹珠</span><span><b>${state.bestCombo}</b>最高连击</span><span><b>+${20 + stars * 10}</b>快乐积分</span></div><button class="primary-button" id="continue">${final ? "再逛一次奇遇岛" : "出发，下一关 →"}</button><button class="secondary-button" id="replay">再玩一次，挑战三颗星</button></div>`;
+    `<div class="result-card"><span class="result-eyebrow">${final ? "ADVENTURE COMPLETE" : "A LITTLE WIN, A BIG SMILE"}</span><div class="art-slot"></div><h2>${final ? "奇遇圆满，快乐继续！" : "收集成功，快乐 +1！"}</h2><div class="result-stars">${Array.from({ length: 3 }, (_, i) => `<span class="${i < stars ? "" : "empty"}">★</span>`).join("")}</div><p>${final ? `你和新朋友一起走过了全部 ${LEVELS.length} 个关卡。` : "又把一份小小的快乐，装进了口袋。"}</p><div class="result-stats"><span><b>${state.shotsUsed}</b>使用弹珠</span><span><b>${state.bestCombo}</b>最高连击</span><span><b>+${20 + stars * 10}</b>快乐积分</span></div><button class="primary-button" id="continue">${final ? "再逛一次奇遇岛" : "出发，下一关 →"}</button><button class="secondary-button" id="replay">再玩一次，挑战三颗星</button></div>`;
   $("overlay")
     .querySelector(".art-slot")
     .append(resultArt(state.level > 3 ? "plant" : "pet"));
@@ -647,10 +666,25 @@ function showModal(html) {
 }
 function showLevels() {
   showModal(
-    `<div class="modal-eyebrow">PICK YOUR LITTLE ADVENTURE</div><h2 class="modal-title">下一站，去哪儿？</h2><p class="modal-subtitle">完成当前关卡，解锁下一份快乐。已解锁的关卡随时重玩。</p><div class="level-grid">${LEVELS.map((l, i) => `<button class="level-tile ${i === state.level ? "current" : ""}" data-level="${i}" ${i > progress.unlocked ? "disabled" : ""}><b>${i > progress.unlocked ? "⌑" : String(i + 1).padStart(2, "0")}</b><small>${l.name}</small><span>${progress.records[i] ? "★".repeat(progress.records[i].stars) : i > progress.unlocked ? "尚未解锁" : "等你出发"}</span></button>`).join("")}</div>`,
+    `<div class="modal-eyebrow">100 LITTLE ADVENTURES</div><h2 class="modal-title">下一站，去哪儿？</h2><p class="modal-subtitle">10 个篇章，${LEVELS.length} 份快乐。完成当前关卡，解锁下一站；通关记录会自动保存。</p><div class="chapter-tabs" aria-label="关卡篇章">${CHAPTERS.map((chapter, i) => `<button data-chapter="${i}" aria-pressed="false">${String(i + 1).padStart(2, "0")} ${chapter.name}</button>`).join("")}</div><div id="level-page" class="level-grid"></div>`,
   );
-  for (const el of $("modal").querySelectorAll("[data-level]"))
-    el.onclick = () => loadLevel(Number(el.dataset.level));
+  function renderChapter(chapter) {
+    const start = chapter * 10;
+    for (const tab of $("modal").querySelectorAll("[data-chapter]")) {
+      tab.setAttribute("aria-pressed", Number(tab.dataset.chapter) === chapter);
+    }
+    $("level-page").innerHTML = LEVELS.slice(start, start + 10)
+      .map((l, offset) => {
+        const i = start + offset;
+        return `<button class="level-tile ${i === state.level ? "current" : ""}" data-level="${i}" ${i > progress.unlocked ? "disabled" : ""}><b>${String(i + 1).padStart(2, "0")}</b><small>${l.name.split(" · ").at(-1)}</small><span>${progress.records[i] ? "★".repeat(progress.records[i].stars) : i > progress.unlocked ? "尚未解锁" : "等你出发"}</span></button>`;
+      })
+      .join("");
+    for (const el of $("modal").querySelectorAll("[data-level]"))
+      el.onclick = () => loadLevel(Number(el.dataset.level));
+  }
+  for (const tab of $("modal").querySelectorAll("[data-chapter]"))
+    tab.onclick = () => renderChapter(Number(tab.dataset.chapter));
+  renderChapter(Math.floor(state.level / 10));
 }
 function showCollection() {
   showModal(

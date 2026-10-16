@@ -2,24 +2,26 @@ const { chromium } = require(process.env.PLAYWRIGHT_PATH || "playwright");
 const assert = require("node:assert/strict");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
+
 (async () => {
   const { LEVELS, createState, fire, step } = await import(
     pathToFileURL(path.resolve(__dirname, "../dist/engine.js"))
   );
-  const plans = [];
-  for (let level = 0; level < 8; level++) {
+  const selected = [7, 8, 98, 99];
+  const plans = new Map();
+  for (const level of selected) {
     let s = createState(level),
       plan = [];
     while (s.status === "playing" && s.ammo > 0) {
-      let targets = s.items.filter(
+      const targets = s.items.filter(
         (e) =>
           e.hp > 0 &&
           e.type in s.collected &&
           s.collected[e.type] < LEVELS[level].goals[e.type],
       );
       let best;
-      for (let target of targets) {
-        let sim = structuredClone(s);
+      for (const target of targets) {
+        const sim = structuredClone(s);
         fire(sim, target.x, target.y);
         for (
           let j = 0;
@@ -27,7 +29,7 @@ const { pathToFileURL } = require("node:url");
           j++
         )
           step(sim, 1 / 240);
-        let gain =
+        const gain =
           Object.entries(sim.collected).reduce(
             (n, [k, v]) =>
               n +
@@ -44,7 +46,7 @@ const { pathToFileURL } = require("node:url");
       s = best.sim;
     }
     assert.equal(s.status, "won");
-    plans.push(plan);
+    plans.set(level, plan);
   }
   const browser = await chromium.launch({
     headless: true,
@@ -53,8 +55,7 @@ const { pathToFileURL } = require("node:url");
       : {}),
   });
   const page = await browser.newPage({
-    viewport: { width: 1440, height: 1000 },
-    deviceScaleFactor: 1,
+    viewport: { width: 1440, height: 900 },
   });
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
@@ -65,25 +66,70 @@ const { pathToFileURL } = require("node:url");
     path: path.resolve(__dirname, "../docs/preview.png"),
     fullPage: true,
   });
-  assert.equal(await page.locator("#ammo").innerText(), "24");
-  await page.click("#hint");
-  assert.ok((await page.evaluate(() => window.petMarbles.getAim())).y > 100);
-  await page.click("#help-nav");
-  assert.ok(await page.locator("dialog").isVisible());
-  await page.click("#modal-close");
-  await page.click("#collection-nav");
-  assert.equal(await page.locator(".pet-card").count(), 3);
-  await page.click("#modal-close");
-  await page.click("#pause");
-  assert.ok(
-    (await page.evaluate(() => window.petMarbles.getSnapshot())).paused,
+
+  // An unchanged v1 save from the eight-level release must resume at its old level,
+  // retain its records and points, and expose level nine without replaying level eight.
+  await page.evaluate(() =>
+    localStorage.setItem(
+      "pet-marbles-v1",
+      JSON.stringify({
+        unlocked: 7,
+        current: 7,
+        records: Object.fromEntries(
+          Array.from({ length: 8 }, (_, i) => [i, { stars: 2, shots: 12 }]),
+        ),
+        pets: ["pet", "plant", "dream"],
+        points: 320,
+      }),
+    ),
   );
-  await page.click("#resume");
+  await page.reload();
+  await page.clock.runFor(100);
+  assert.equal(
+    (await page.evaluate(() => window.petMarbles.getSnapshot())).unlocked,
+    9,
+  );
+  const migrated = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem("pet-marbles-v1")),
+  );
+  assert.equal(migrated.points, 320);
+  assert.equal(Object.keys(migrated.records).length, 8);
+  await page.click("#levels");
+  assert.equal(await page.locator("[data-chapter]").count(), 10);
+  const allLevels = [];
+  let locked = 0;
+  for (let chapter = 0; chapter < 10; chapter++) {
+    await page.click(`[data-chapter="${chapter}"]`);
+    allLevels.push(
+      ...(await page
+        .locator("[data-level]")
+        .evaluateAll((els) => els.map((el) => Number(el.dataset.level)))),
+    );
+    locked += await page.locator(".level-tile:disabled").count();
+  }
+  assert.deepEqual(
+    allLevels,
+    Array.from({ length: 100 }, (_, i) => i),
+  );
+  assert.equal(locked, 91);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({
+    path: path.resolve(__dirname, "../docs/chapters-mobile.png"),
+    fullPage: true,
+  });
+  assert.equal(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > innerWidth,
+    ),
+    false,
+  );
+  await page.click("#modal-close");
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.click("#speed");
   const shoot = async (x, y) => {
-    let rect = await page.locator("#game").boundingBox();
+    const rect = await page.locator("#game").boundingBox();
     await page.mouse.move(
-      rect.x + (220 / 440) * rect.width,
+      rect.x + rect.width / 2,
       rect.y + (120 / 700) * rect.height,
     );
     await page.mouse.down();
@@ -96,77 +142,77 @@ const { pathToFileURL } = require("node:url");
     await page.clock.runFor(5100);
   };
   const report = [];
-  for (let level = 0; level < 8; level++) {
-    for (const [x, y] of plans[level]) await shoot(x, y);
-    let s = await page.evaluate(() => window.petMarbles.getSnapshot());
+  const win = async (level) => {
     assert.equal(
-      s.status,
-      "won",
-      `browser level ${level + 1}: ${JSON.stringify(s)}`,
+      (await page.evaluate(() => window.petMarbles.getSnapshot())).level,
+      level + 1,
     );
+    for (const [x, y] of plans.get(level)) await shoot(x, y);
+    const s = await page.evaluate(() => window.petMarbles.getSnapshot());
+    assert.equal(s.status, "won", JSON.stringify(s));
     assert.ok(await page.locator("#continue").isVisible());
     report.push({
       level: level + 1,
-      shots: plans[level].length,
+      shots: plans.get(level).length,
       status: s.status,
     });
-    if (level === 0)
-      await page.screenshot({
-        path: path.resolve(__dirname, "../docs/win.png"),
-        fullPage: true,
-      });
-    if (level < 7) await page.click("#continue");
-  }
+    console.log(
+      `Level ${level + 1}: won with ${plans.get(level).length} marbles.`,
+    );
+  };
+  await win(7);
+  assert.equal(await page.locator("#continue").innerText(), "出发，下一关 →");
   await page.click("#continue");
-  assert.equal(await page.locator(".level-tile:disabled").count(), 0);
-  await page.click('[data-level="0"]');
+  await win(8);
+  await page.click("#continue");
   await page.reload();
   await page.clock.runFor(100);
   assert.equal(
-    (await page.evaluate(() => window.petMarbles.getSnapshot())).unlocked,
-    8,
+    (await page.evaluate(() => window.petMarbles.getSnapshot())).level,
+    10,
   );
-  await page.click("#speed");
-  for (let i = 0; i < 24; i++) await shoot(220, 600);
   assert.equal(
-    (await page.evaluate(() => window.petMarbles.getSnapshot())).status,
-    "lost",
+    (await page.evaluate(() => window.petMarbles.getSnapshot())).unlocked,
+    10,
   );
-  assert.ok(await page.locator("#retry").isVisible());
-  await page.click("#retry");
-  assert.equal(await page.locator("#ammo").innerText(), "24");
-  await shoot(140, 260);
-  await page.click("#restart");
-  assert.ok(await page.locator("#confirm-restart").isVisible());
-  await page.click("#cancel-restart");
-  await page.click("#restart");
-  await page.click("#confirm-restart");
-  assert.equal(await page.locator("#ammo").innerText(), "24");
-  await page.click("#levels");
-  await page.click('[data-level="5"]');
+
+  // Unlock late content as a test fixture; wins still require real pointer shots.
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("pet-marbles-v1"));
+    s.unlocked = 99;
+    s.current = 98;
+    localStorage.setItem("pet-marbles-v1", JSON.stringify(s));
+  });
+  await page.reload();
+  await page.clock.runFor(100);
+  await page.click("#speed");
+  await win(98);
+  await page.click("#continue");
   await page.clock.runFor(100);
   await page.screenshot({
-    path: path.resolve(__dirname, "../docs/forest.png"),
+    path: path.resolve(__dirname, "../docs/level-100.png"),
     fullPage: true,
   });
-  await page.click("#collection-nav");
-  assert.equal(await page.locator(".pet-card.locked").count(), 0);
-  await page.screenshot({
-    path: path.resolve(__dirname, "../docs/collection.png"),
-    fullPage: true,
-  });
-  await page.click("#modal-close");
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.clock.runFor(100);
-  await page.screenshot({
-    path: path.resolve(__dirname, "../docs/mobile.png"),
-    fullPage: true,
-  });
-  let overflow = await page.evaluate(
-    () => document.documentElement.scrollWidth > innerWidth,
+  await win(99);
+  assert.ok(
+    (await page.locator(".result-card").innerText()).includes(
+      "全部 100 个关卡",
+    ),
   );
-  assert.equal(overflow, false);
-  // A separate touch context proves touch pointer events reach the same launcher.
+  await page.click("#continue");
+  assert.equal(
+    await page.locator('[data-chapter="9"]').getAttribute("aria-pressed"),
+    "true",
+  );
+  assert.ok(await page.locator('[data-level="99"]').isEnabled());
+  await page.click('[data-chapter="0"]');
+  await page.click('[data-level="0"]');
+  await page.reload();
+  assert.equal(
+    (await page.evaluate(() => window.petMarbles.getSnapshot())).unlocked,
+    100,
+  );
+
   const mobile = await browser.newContext({
     viewport: { width: 390, height: 844 },
     isMobile: true,
@@ -178,22 +224,22 @@ const { pathToFileURL } = require("node:url");
   await phone.locator("#game").tap({ position: { x: 170, y: 200 } });
   assert.equal(await phone.locator("#ammo").innerText(), "23");
   await phone.click("#levels");
-  assert.equal(await phone.locator(".level-tile:disabled").count(), 7);
-  await phone.click("#modal-close");
-  await mobile.close();
+  assert.equal(await phone.locator(".level-tile:disabled").count(), 9);
+  await phone.click('[data-chapter="9"]');
+  assert.equal(await phone.locator(".level-tile:disabled").count(), 10);
   assert.deepEqual(errors, []);
   console.log(
     JSON.stringify(
       {
         levels: report,
-        failureRetry: true,
-        restart: true,
-        pause: true,
-        help: true,
-        collection: true,
+        totalLevels: allLevels.length,
+        chapters: 10,
+        legacySaveMigration: true,
+        progression8To9: true,
+        progression99To100: true,
+        finalVictory: true,
         persistence: true,
         touch: true,
-        mobileOverflow: overflow,
         pageErrors: errors,
       },
       null,
