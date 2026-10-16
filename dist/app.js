@@ -10,7 +10,7 @@ import {
   step,
   aimPath,
 } from "./engine.js";
-import { pet, oval, round, drawItem, makeIcon } from "./art.js";
+import { pet, oval, round, drawItem, drawFish, makeIcon } from "./art.js";
 const $ = (id) => document.getElementById(id),
   canvas = $("game"),
   ctx = canvas.getContext("2d");
@@ -353,6 +353,17 @@ function boardPath(c) {
 }
 function drawBoard() {
   ctx.clearRect(0, 0, W, H);
+  for (let i = 0; i < 2; i++) {
+    const phase = time * 0.26 + (i ? 3.7 : 0.7);
+    drawFish(
+      ctx,
+      220 + Math.sin(phase) * 166,
+      29 + i * 22 + Math.sin(phase * 2) * 8,
+      Math.atan2(16 * Math.cos(phase * 2), 166 * Math.cos(phase)),
+      time + i,
+      i ? "#e9ba76" : "#e69d9a",
+    );
+  }
   ctx.save();
   ctx.translate(0, 7);
   boardPath(ctx);

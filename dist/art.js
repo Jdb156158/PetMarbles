@@ -43,6 +43,36 @@ function face(c, y = 3) {
   c.quadraticCurveTo(0, y + 9, 2, y + 6);
   c.stroke();
 }
+export function drawFish(c, x, y, angle, time, color) {
+  c.save();
+  c.translate(x, y);
+  c.rotate(angle);
+  const tail = Math.sin(time * 9) * 3;
+  oval(c, 0, 3, 16, 6, "#548e8618");
+  c.strokeStyle = "#f4fffba0";
+  c.lineWidth = 1;
+  c.beginPath();
+  c.ellipse(-23, 0, 7, 10, 0, -0.6, 0.6);
+  c.stroke();
+  c.fillStyle = color;
+  c.beginPath();
+  c.moveTo(-10, 0);
+  c.quadraticCurveTo(-16, tail - 4, -23, tail - 7);
+  c.quadraticCurveTo(-19, tail, -23, tail + 7);
+  c.quadraticCurveTo(-16, tail + 4, -10, 0);
+  c.fill();
+  c.globalAlpha = 0.6;
+  oval(c, -1, -6, 6, 3, color);
+  oval(c, -1, 6, 6, 3, color);
+  c.globalAlpha = 1;
+  oval(c, 0, 0, 15, 6, "#fff5df");
+  oval(c, -4, 0, 6, 5.5, color);
+  oval(c, 7, -1, 4, 4, color);
+  oval(c, 2, -2.5, 6, 1.4, "#ffffffa0");
+  oval(c, 11, -2.6, 0.9, 0.9, "#43695f");
+  oval(c, 11, 2.6, 0.9, 0.9, "#43695f");
+  c.restore();
+}
 export function pet(c, x, y, r = 22, kind = "pet", time = 0) {
   c.save();
   c.translate(x, y);
