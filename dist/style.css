@@ -450,12 +450,12 @@ h1 > span:after {
   border-top-color: #edaa9f;
   border-bottom-color: #edaa9f;
 }
-.flower {
-  right: 16px;
+.duck {
+  right: 12px;
   top: 52px;
-  color: #fff3c4;
-  font-size: 31px;
-  transform: rotate(12deg);
+  width: 34px;
+  height: 34px;
+  transform: rotate(-10deg);
 }
 .board-tip {
   position: absolute;
