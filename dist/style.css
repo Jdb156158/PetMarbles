@@ -328,7 +328,7 @@ h1 > span:after {
 }
 .arcade {
   position: relative;
-  background: linear-gradient(155deg, #d2e9e1, #acd8d5 75%, #b3d8d1);
+  background: linear-gradient(155deg, #a5e1dc, #77cbd2 55%, #83d1cf);
   border: 1px solid #9dcac1;
   border-radius: 29px;
   padding: 70px 8px 13px;
@@ -342,10 +342,17 @@ h1 > span:after {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(#fff2 1px, transparent 1px),
-    linear-gradient(90deg, #fff2 1px, transparent 1px);
+    linear-gradient(#397f941f 1px, transparent 1px),
+    linear-gradient(90deg, #397f941f 1px, transparent 1px);
   background-size: 47px 47px;
-  opacity: 0.6;
+  opacity: 0.7;
+  pointer-events: none;
+}
+.pool-water {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
 }
 .game-hud {
@@ -449,6 +456,8 @@ h1 > span:after {
   transform: rotate(35deg);
   border-top-color: #edaa9f;
   border-bottom-color: #edaa9f;
+  box-shadow: 2px 5px 5px #367f8829;
+  animation: ring-drift 8s ease-in-out infinite;
 }
 .duck {
   right: 12px;
@@ -456,6 +465,48 @@ h1 > span:after {
   width: 34px;
   height: 34px;
   transform: rotate(-10deg);
+  transform-origin: 50% 70%;
+  animation: duck-drift 6.5s ease-in-out infinite;
+}
+.duck > ellipse:first-child {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: duck-ripple 3.25s ease-in-out infinite;
+}
+@keyframes duck-drift {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(-10deg);
+  }
+  35% {
+    transform: translate(-7px, 3px) rotate(3deg);
+  }
+  70% {
+    transform: translate(-3px, -3px) rotate(-17deg);
+  }
+}
+@keyframes ring-drift {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(35deg);
+  }
+  40% {
+    transform: translate(6px, 4px) rotate(51deg);
+  }
+  75% {
+    transform: translate(2px, -3px) rotate(24deg);
+  }
+}
+@keyframes duck-ripple {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.25, 1.15);
+    opacity: 1;
+  }
 }
 .board-tip {
   position: absolute;

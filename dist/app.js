@@ -15,6 +15,51 @@ const $ = (id) => document.getElementById(id),
   canvas = $("game"),
   ctx = canvas.getContext("2d");
 ctx.scale(canvas.width / W, canvas.height / H);
+const pool = $("pool-water"),
+  poolCtx = pool.getContext("2d"),
+  reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+let poolFrame,
+  lastWater = -Infinity;
+new ResizeObserver(() => {
+  const rect = pool.parentElement.getBoundingClientRect();
+  pool.width = 220;
+  pool.height = Math.ceil((220 * rect.height) / rect.width);
+  poolFrame = poolCtx.createImageData(pool.width, pool.height);
+  for (let i = 0; i < poolFrame.data.length; i += 4) {
+    poolFrame.data[i] = 233;
+    poolFrame.data[i + 1] = 255;
+    poolFrame.data[i + 2] = 255;
+  }
+  lastWater = -Infinity;
+}).observe(pool.parentElement);
+
+function drawPoolWater(now) {
+  if (!poolFrame || now - lastWater < 40) return;
+  lastWater = now;
+  const t = reducedMotion.matches ? 0 : now / 1000;
+  for (let y = 0; y < pool.height; y++) {
+    const v = (y / pool.width) * 8;
+    const drift =
+      0.65 * Math.sin(v * 1.1 + t * 0.4) + 0.25 * Math.cos(v * 2.3 - t * 0.3);
+    for (let x = 0; x < pool.width; x++) {
+      const u = (x / pool.width) * 8;
+      const wx = u + drift;
+      const wy =
+        v +
+        0.65 * Math.cos(u * 1.25 - t * 0.35) +
+        0.25 * Math.sin(u * 2 + t * 0.5);
+      const field = Math.sin(wx * 2 + t * 0.2) + Math.sin(wy * 2 - t * 0.25);
+      const cross =
+        Math.sin((wx + wy) * 1.4 + t * 0.15) +
+        Math.cos((wx - wy) * 1.7 - t * 0.2);
+      poolFrame.data[(y * pool.width + x) * 4 + 3] =
+        7 +
+        105 / (1 + Math.abs(field) * 7) ** 2 +
+        35 / (1 + Math.abs(cross) * 9) ** 2;
+    }
+  }
+  poolCtx.putImageData(poolFrame, 0, 0);
+}
 const STORAGE = "pet-marbles-v1";
 let saved;
 try {
@@ -546,6 +591,7 @@ function animate(now) {
     }
     floats = floats.filter((f) => f.life > 0);
   }
+  drawPoolWater(now);
   drawBoard();
   if (Math.round(now / 100) % 2 === 0) resizeArt();
   requestAnimationFrame(animate);
